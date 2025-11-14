@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>التقاط وإرسال صورة إلى بوت تيليجرام</title>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+        }
+
+        .container {
+            text-align: center;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            max-width: 90%;
+            width: 450px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+
+        #video {
+            width: 100%;
+            height: auto;
+            border: 3px solid #0088cc;
+            border-radius: 8px;
+            display: block;
+            margin: 10px auto 20px;
+            background-color: #000;
+        }
+
+        #capture-button {
+            padding: 12px 25px;
+            font-size: 18px;
+            background-color: #0088cc; /* لون تيليجرام */
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+
+        #capture-button:hover:not(:disabled) {
+            background-color: #0077b3;
+        }
+
+        #capture-button:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
+        }
+
+        #status-message {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #555;
+            min-height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>التقاط وإرسال صورة إلى تيليجرام 📷</h1>
+        <video id="video" autoplay playsinline></video> 
+        <canvas id="canvas" style="display: none;"></canvas>
+        <button id="capture-button" disabled>انتظر الكاميرا...</button>
+        <p id="status-message">جاري تحميل النظام...</p>
+    </div>
+
+    <script>
+        // ******************************************************
+        // ** إعدادات البوت - تم التحديث بالمعلومات التي قدمتها **
+        // ******************************************************
+        
+        // رمز البوت (Token) الذي حصلت عليه من BotFather
+        const BOT_TOKEN = '8299004372:AAErVG-8zGODSvHxn0ZChWzBWXa3iGvw3NA'; 
+        
+        // معرف الدردشة (Chat ID) الخاص بك
+        const CHAT_ID = '7869791131'; 
+        
+        const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+
+        // ******************************************************
+        // ** عناصر DOM والمتغيرات             **
+        // ******************************************************
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureButton = document.getElementById('capture-button');
+        const statusMessage = document.getElementById('status-message');
+        const context = canvas.getContext('2d');
+        let stream = null;
+
+        // ******************************************************
+        // ** وظائف مساعدة                     **
+        // ******************************************************
+        
+        /**
+         * تحويل Data URL (Base64) إلى كائن Blob/File.
+         */
+        function dataURLtoBlob(dataurl) {
+            const arr = dataurl.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], {type: mime});
+        }
+
+        // ******************************************************
+        // ** وظائف الكاميرا والإرسال             **
+        // ******************************************************
+
+        /**
+         * طلب الوصول إلى الكاميرا وبدء البث.
+         */
+        async function startCamera() {
+            statusMessage.textContent = 'جاري طلب إذن الكاميرا...';
+            captureButton.disabled = true;
+            try {
+                // طلب بث فيديو من الكاميرا
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment' // يمكن تغييرها إلى 'user' للكاميرا الأمامية
+                    } 
+                });
+                video.srcObject = stream;
+                // الانتظار حتى تكون بيانات الفيديو جاهزة
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+                video.play();
+                statusMessage.textContent = 'الكاميرا جاهزة. اضغط للالتقاط والإرسال.';
+                captureButton.disabled = false;
+            } catch (error) {
+                console.error('خطأ في الوصول إلى الكاميرا:', error);
+                statusMessage.textContent = 'خطأ: لم يتم منح إذن الكاميرا أو لا توجد كاميرا. (تأكد من استخدام HTTPS)';
+                captureButton.disabled = true;
+            }
+        }
+
+        /**
+         * التقاط الصورة، إيقاف البث، وإرسالها إلى Telegram API.
+         */
+        async function captureAndSend() {
+            if (!stream) {
+                statusMessage.textContent = 'البث غير متاح.';
+                return;
+            }
+            
+            captureButton.disabled = true;
+            statusMessage.textContent = 'جاري التقاط الصورة...';
+            
+            // 1. ضبط أبعاد الـ Canvas ورسم الإطار
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // 2. تحويل الصورة إلى Blob
+            const imageDataURL = canvas.toDataURL('image/jpeg', 0.9);
+            const imageBlob = dataURLtoBlob(imageDataURL);
+            
+            // 3. إيقاف بث الكاميرا فوراً
+            stream.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+            
+            statusMessage.textContent = 'جاري إرسال الصورة إلى تيليجرام... 🚀';
+
+            // 4. إرسال البيانات عبر Telegram API
+            const formData = new FormData();
+            formData.append('chat_id', CHAT_ID);
+            formData.append('photo', imageBlob, 'captured_image.jpg'); 
+            formData.append('caption', 'صورة ملتقطة آلياً عبر الويب.');
+
+            try {
+                const response = await fetch(TELEGRAM_API_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    statusMessage.textContent = '✅ تم الإرسال بنجاح! يمكنك إعادة تشغيل الكاميرا.';
+                    console.log('نجاح الإرسال:', data);
+                } else {
+                    statusMessage.textContent = `❌ فشل الإرسال: ${data.description || 'خطأ غير معروف'}`;
+                    console.error('خطأ في إرسال تيليجرام:', data);
+                }
+            } catch (error) {
+                statusMessage.textContent = '❌ خطأ في الاتصال بخادم تيليجرام.';
+                console.error('خطأ في عملية الـ fetch:', error);
+            }
+            
+            captureButton.disabled = false;
+        }
+
+        // ******************************************************
+        // ** التحميل والأحداث                 **
+        // ******************************************************
+
+        // ربط الزر بدالة التقاط وإرسال
+        captureButton.addEventListener('click', captureAndSend);
+
+        // بدء تشغيل الكاميرا عند تحميل الصفحة
+        window.onload = startCamera;
+    </script>
+</body>
+</html>
