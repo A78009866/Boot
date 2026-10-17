@@ -12,7 +12,7 @@ type Phase =
   | 'sending'
   | 'sent';
 
-const MAX_SECONDS = 10;
+const MAX_SECONDS = 5;
 
 /**
  * نفضّل MP4 مباشرة (Safari + Chrome الحديث)، ثم WebM كخطة بديلة
@@ -330,7 +330,7 @@ export default function Recorder({
       setRemaining(Math.max(0, MAX_SECONDS - secs));
     }, 100);
 
-    // ⏱️ الإيقاف التلقائي عند 10 ثوانٍ
+    // ⏱️ الإيقاف التلقائي عند 5 ثوانٍ
     timeoutRef.current = setTimeout(stopRecording, MAX_SECONDS * 1000);
 
     try {
