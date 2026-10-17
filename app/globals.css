@@ -1,0 +1,440 @@
+:root {
+  --bg: #070b10;
+  --bg-soft: #0b1118;
+  --card: #0e1620;
+  --card-2: #121c28;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #e8eef6;
+  --muted: #8ea1b6;
+  --accent: #3ba7ff;
+  --accent-2: #7d5cff;
+  --danger: #ff4d5e;
+  --ok: #22c98a;
+  --warn: #ffb020;
+  --radius: 22px;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1000px 600px at 85% -10%, rgba(59, 167, 255, 0.16), transparent 60%),
+    radial-gradient(800px 520px at 5% 105%, rgba(125, 92, 255, 0.14), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Naskh Arabic',
+    'Noto Sans Arabic', 'Tahoma', 'Arial', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 14px 34px;
+}
+
+.shell {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ------------------------------- الرأس ------------------------------- */
+.head {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0 0;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.brand h1 {
+  font-size: 1.55rem;
+  margin: 0;
+  letter-spacing: 0.2px;
+  font-weight: 800;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 0 4px rgba(59, 167, 255, 0.14), 0 0 18px rgba(59, 167, 255, 0.65);
+}
+
+.sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* ------------------------------ البطاقة ------------------------------ */
+.stage {
+  background: linear-gradient(180deg, var(--card), var(--card-2));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.camera {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 62dvh;
+  background: #05080c;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.camera.is-rec {
+  border-color: rgba(255, 77, 94, 0.55);
+  box-shadow: 0 0 0 3px rgba(255, 77, 94, 0.12), 0 0 34px rgba(255, 77, 94, 0.22) inset;
+}
+
+.viewer {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #05080c;
+  transform: scaleX(-1); /* مرآة للكاميرا الأمامية */
+}
+
+.camera video.viewer[src] {
+  transform: none; /* معاينة التسجيل بدون مرآة */
+}
+
+.hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.015) 0 12px,
+    transparent 12px 24px
+  );
+}
+
+/* --------------------------- شارات التسجيل --------------------------- */
+.recBadge {
+  position: absolute;
+  top: 12px;
+  inset-inline-start: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: rgba(5, 8, 12, 0.72);
+  border: 1px solid rgba(255, 77, 94, 0.5);
+  color: #ffd9dd;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  backdrop-filter: blur(6px);
+}
+
+.recDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+
+.countRing {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #fff;
+  background: rgba(5, 8, 12, 0.72);
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+.progressWrap {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.progressBar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.1s linear;
+}
+
+/* ------------------------------ الطبقات ------------------------------ */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 22px;
+  background: rgba(5, 8, 12, 0.7);
+  backdrop-filter: blur(4px);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.overlay .meta {
+  font-weight: 500;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.overlay.ok {
+  color: var(--ok);
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------ الأزرار ------------------------------ */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 14px 18px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.98rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+  color: #fff;
+  background: #1a2533;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.995);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 10px 26px rgba(59, 167, 255, 0.28);
+}
+
+.btn.primary:hover:not(:disabled) {
+  filter: brightness(1.07);
+}
+
+.btn.danger {
+  background: rgba(255, 77, 94, 0.12);
+  border-color: rgba(255, 77, 94, 0.45);
+  color: #ffb9bf;
+}
+
+.btn.danger.solid {
+  background: linear-gradient(135deg, #ff4d5e, #d63246);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(255, 77, 94, 0.25);
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.btn.ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* ------------------------------ الرسائل ------------------------------ */
+.banner {
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  border: 1px solid transparent;
+}
+
+.banner.err {
+  background: rgba(255, 77, 94, 0.1);
+  border-color: rgba(255, 77, 94, 0.35);
+  color: #ffc3c8;
+}
+
+.banner.warn {
+  background: rgba(255, 176, 32, 0.1);
+  border-color: rgba(255, 176, 32, 0.35);
+  color: #ffdda1;
+}
+
+.banner.small {
+  font-size: 0.8rem;
+  padding: 8px 10px;
+}
+
+.banner code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 0.85em;
+  direction: ltr;
+  display: inline-block;
+}
+
+.note {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.note.foot {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* --------------------------- نافذة رمز الدخول --------------------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(3, 5, 8, 0.75);
+  backdrop-filter: blur(8px);
+}
+
+.modalCard {
+  width: 100%;
+  max-width: 380px;
+  background: linear-gradient(180deg, var(--card), var(--card-2));
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+
+.modalCard h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.modalCard p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.input {
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  letter-spacing: 2px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 167, 255, 0.16);
+}
+
+@media (max-width: 380px) {
+  .shell {
+    gap: 12px;
+  }
+  .brand h1 {
+    font-size: 1.3rem;
+  }
+  .btn {
+    padding: 13px 14px;
+  }
+}
