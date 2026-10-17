@@ -1,16 +1,19 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { headers } from 'next/headers';
+import { buildMetadata } from '@/lib/link-preview';
 import './globals.css';
 
-export const metadata: Metadata = {
-  title: 'عشر ثوانٍ — فيديو إلى تلغرام',
-  description: 'سجّل فيديو مدته 10 ثوانٍ ويُرسل تلقائيًا إلى محادثتك على تلغرام.',
-  robots: { index: false, follow: false },
-};
+/** نولّد وسوم المعاينة (og:image / og:video) بروابط مطلقة حسب دومين الطلب */
+export async function generateMetadata(): Promise<Metadata> {
+  const h = await headers();
+  return buildMetadata(h);
+}
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
   viewportFit: 'cover',
   themeColor: '#070b10',
 };

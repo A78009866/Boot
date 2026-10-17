@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { startComposition, type Composition } from '@/lib/compositor';
 
 type Phase =
   | 'loading'
@@ -55,10 +56,17 @@ function friendlyError(err: unknown): string {
   }
 }
 
-export default function Recorder() {
+export default function Recorder({
+  autoStart = false,
+  fxVideoUrls,
+}: {
+  autoStart?: boolean;
+  fxVideoUrls?: string[];
+}) {
   /* ------------------------------ المراجع ------------------------------ */
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const compRef = useRef<Composition | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -66,6 +74,7 @@ export default function Recorder() {
   const startAtRef = useRef<number>(0);
   const mimeRef = useRef<string>('');
   const videoUrlRef = useRef<string | null>(null);
+  const autoStartedRef = useRef(false);
 
   /* ------------------------------ الحالات ------------------------------ */
   const [phase, setPhase] = useState<Phase>('loading');
@@ -74,11 +83,9 @@ export default function Recorder() {
   const [error, setError] = useState<string | null>(null);
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
-  const [retakeAsk, setRetakeAsk] = useState(false);
+  const [cameraSize, setCameraSize] = useState<{ width: number; height: number } | null>(null);
   const [sending, setSending] = useState(false);
 
-  const [needsCode, setNeedsCode] = useState(false);
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
   const [serverReady, setServerReady] = useState<boolean | null>(null);
@@ -91,10 +98,18 @@ export default function Recorder() {
     timeoutRef.current = null;
   }, []);
 
-  const stopStream = useCallback(() => {
+  const stopEverything = useCallback(() => {
+    clearTimers();
+    try {
+      compRef.current?.stop();
+    } catch {
+      /* تجاهل */
+    }
+    compRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-  }, []);
+    if (stageRef.current) stageRef.current.innerHTML = '';
+  }, [clearTimers]);
 
   const clearVideo = useCallback(() => {
     if (videoUrlRef.current) {
@@ -103,7 +118,6 @@ export default function Recorder() {
     }
     setVideoUrl(null);
     setVideoBlob(null);
-    setDimensions(null);
   }, []);
 
   /* ---------------------- قراءة إعدادات الخادم أولًا ---------------------- */
@@ -120,12 +134,6 @@ export default function Recorder() {
       if (!alive) return;
 
       setServerReady(cfg.ready !== false);
-      setNeedsCode(Boolean(cfg.needsCode));
-
-      if (!cfg.needsCode) {
-        setPhase('idle');
-        return;
-      }
 
       let saved: string | null = null;
       try {
@@ -133,6 +141,12 @@ export default function Recorder() {
       } catch {
         saved = null;
       }
+
+      if (!cfg.needsCode) {
+        setPhase('idle');
+        return;
+      }
+
       if (saved) {
         const ok = await fetch('/api/verify-code', {
           method: 'POST',
@@ -159,12 +173,17 @@ export default function Recorder() {
   /* --------------------------- تنظيف عند الإغلاق --------------------------- */
   useEffect(() => {
     return () => {
+      try {
+        compRef.current?.stop();
+      } catch {
+        /* تجاهل */
+      }
       clearTimers();
-      stopStream();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
       if (videoUrlRef.current) URL.revokeObjectURL(videoUrlRef.current);
       videoUrlRef.current = null;
     };
-  }, [clearTimers, stopStream]);
+  }, [clearTimers]);
 
   /* ----------------------------- إيقاف التسجيل ----------------------------- */
   const stopRecording = useCallback(() => {
@@ -176,7 +195,6 @@ export default function Recorder() {
   /* ------------------------------ بدء التسجيل ------------------------------ */
   const startRecording = useCallback(async () => {
     setError(null);
-    setRetakeAsk(false);
     setElapsed(0);
     setRemaining(MAX_SECONDS);
     clearVideo();
@@ -206,32 +224,39 @@ export default function Recorder() {
     }
 
     streamRef.current = stream;
-    const videoEl = videoRef.current;
-    if (videoEl) {
-      videoEl.srcObject = stream;
-      videoEl.muted = true;
-      videoEl.play().catch(() => {});
+    // تركيب: كاميرا + فيديو المونتاج فوقها (720×1280)
+    let comp: Composition;
+    try {
+      comp = await startComposition({ cameraStream: stream, fxUrls: fxVideoUrls });
+    } catch {
+      setError('تعذّر تجهيز طبقة الكاميرا على هذا الجهاز.');
+      stream.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      return;
     }
+    compRef.current = comp;
+    setCameraSize(comp.cameraSize);
 
-    const track = stream.getVideoTracks()[0];
-    const settings = track?.getSettings?.() ?? {};
-    if (settings.width && settings.height) {
-      setDimensions({ width: settings.width, height: settings.height });
+    // نعرض الكانفس الناتج داخل الإطار
+    if (stageRef.current) {
+      stageRef.current.innerHTML = '';
+      comp.canvas.className = 'stageCanvas';
+      stageRef.current.appendChild(comp.canvas);
     }
 
     const options: MediaRecorderOptions = {
-      videoBitsPerSecond: 2_500_000,
+      videoBitsPerSecond: 2_800_000,
       audioBitsPerSecond: 96_000,
     };
     if (mime) options.mimeType = mime;
 
     let recorder: MediaRecorder | null = null;
     try {
-      recorder = new MediaRecorder(stream, options);
+      recorder = new MediaRecorder(comp.stream, options);
     } catch {
       try {
-        recorder = new MediaRecorder(stream, {
-          videoBitsPerSecond: 2_500_000,
+        recorder = new MediaRecorder(comp.stream, {
+          videoBitsPerSecond: 2_800_000,
           audioBitsPerSecond: 96_000,
         });
       } catch {
@@ -241,7 +266,7 @@ export default function Recorder() {
 
     if (!recorder) {
       setError('تعذّر بدء التسجيل في هذا المتصفح.');
-      stopStream();
+      stopEverything();
       setPhase('idle');
       return;
     }
@@ -254,25 +279,29 @@ export default function Recorder() {
     };
 
     recorder.onerror = () => {
-      clearTimers();
+      stopEverything();
       setError('حدث خطأ أثناء التسجيل، أعد المحاولة.');
-      stopStream();
       setPhase('idle');
     };
 
     recorder.onstop = () => {
       clearTimers();
+
       const actualMime = recorder?.mimeType || mimeRef.current || 'video/webm';
       const blob = new Blob(chunksRef.current, { type: actualMime });
       chunksRef.current = [];
-      stopStream();
 
       const duration = Math.min(MAX_SECONDS, (performance.now() - startAtRef.current) / 1000);
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-        videoRef.current.muted = false;
+      try {
+        comp.stop();
+      } catch {
+        /* تجاهل */
       }
+      compRef.current = null;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      if (stageRef.current) stageRef.current.innerHTML = '';
 
       if (blob.size === 0) {
         setError('لم يُسجَّل أي شيء، جرّب مرة أخرى.');
@@ -301,27 +330,44 @@ export default function Recorder() {
       setRemaining(Math.max(0, MAX_SECONDS - secs));
     }, 100);
 
-    // ⏱️ الإيقاف التلقائي بعد 10 ثوانٍ بالضبط
+    // ⏱️ الإيقاف التلقائي عند 10 ثوانٍ
     timeoutRef.current = setTimeout(stopRecording, MAX_SECONDS * 1000);
 
     try {
-      recorder.start(250); // دفعات كل ربع ثانية لتفادي فقدان البيانات
+      recorder.start(250);
     } catch {
-      clearTimers();
-      stopStream();
+      stopEverything();
       setError('تعذّر بدء التسجيل في هذا المتصفح.');
       setPhase('idle');
     }
-  }, [clearTimers, clearVideo, stopRecording, stopStream]);
+  }, [clearTimers, clearVideo, fxVideoUrls, stopEverything, stopRecording]);
+
+  /* --------------------- البدء التلقائي بعد فتح الرابط --------------------- */
+  // نحفظ أحدث نسخة من startRecording في مرجع حتى لا يعتمد المؤقت على هوية الدالة
+  const startRecordingRef = useRef(startRecording);
+  useEffect(() => {
+    startRecordingRef.current = startRecording;
+  }, [startRecording]);
+
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current) return;
+    if (phase !== 'idle' || serverReady === false) return;
+
+    autoStartedRef.current = true;
+    // لا نُلغي المؤقت في دالة التنظيف: تغيّر أي حالة خلال المهلة كان يمنع البدء
+    setTimeout(() => {
+      void startRecordingRef.current();
+    }, 150);
+  }, [autoStart, phase, serverReady]);
 
   /* ------------------------------ إعادة الضبط ------------------------------ */
   const resetToIdle = useCallback(() => {
     clearVideo();
     setElapsed(0);
     setRemaining(MAX_SECONDS);
-    setRetakeAsk(false);
     setError(null);
     setPhase('idle');
+    autoStartedRef.current = true; // لا نعيد البدء التلقائي عند التسجيل مجددًا
   }, [clearVideo]);
 
   /* -------------------------------- الإرسال -------------------------------- */
@@ -339,8 +385,8 @@ export default function Recorder() {
         'meta',
         JSON.stringify({
           duration: Number(elapsed.toFixed(2)),
-          width: dimensions?.width ?? null,
-          height: dimensions?.height ?? null,
+          width: 720,
+          height: 1280,
           mime: videoBlob.type,
         })
       );
@@ -366,7 +412,7 @@ export default function Recorder() {
     } finally {
       setSending(false);
     }
-  }, [code, dimensions, elapsed, sending, videoBlob]);
+  }, [code, elapsed, sending, videoBlob]);
 
   /* ------------------------------ رمز الدخول ------------------------------ */
   const submitCode = useCallback(async () => {
@@ -384,7 +430,7 @@ export default function Recorder() {
       try {
         sessionStorage.setItem('v10_code', code);
       } catch {
-        /* تجاهل: بعض البيئات تمنع التخزين */
+        /* تجاهل */
       }
       setPhase('idle');
     } catch {
@@ -396,129 +442,125 @@ export default function Recorder() {
   const progress = Math.min(1, elapsed / MAX_SECONDS);
   const secondsLeft = Math.max(0, Math.ceil(remaining));
   const showPreview = phase === 'preview' || phase === 'sending' || phase === 'sent';
+  const showStage = phase === 'recording' || (phase === 'idle' && false);
 
   return (
-    <div className="shell">
-      <header className="head">
-        <div className="brand">
-          <span className="dot" aria-hidden="true" />
-          <h1>عشر ثوانٍ</h1>
-        </div>
-        <p className="sub">سجّل مقطعك، وسيُرسل تلقائيًا إلى تلغرام.</p>
-      </header>
-
-      {serverReady === false && (
-        <div className="banner warn">
-          ⚠️ الخادم غير مهيأ: أضف <code>TELEGRAM_BOT_TOKEN</code> و <code>TELEGRAM_CHAT_ID</code> في
-          متغيرات البيئة على Vercel ثم أعد النشر.
-        </div>
-      )}
-
-      <div className="stage">
-        <div className={`camera ${phase === 'recording' ? 'is-rec' : ''}`}>
-          {/* معاينة الكاميرا المباشرة */}
-          <video
-            ref={videoRef}
-            className="viewer"
-            style={{ display: showPreview ? 'none' : 'block' }}
-            playsInline
-            muted
-            autoPlay
-          />
-
-          {/* معاينة التسجيل */}
-          {showPreview && videoUrl && (
-            <video className="viewer" src={videoUrl} controls playsInline autoPlay loop />
-          )}
-
-          {phase === 'idle' && <div className="hint">ستُشغَّل الكاميرا عند الضغط على «ابدأ التسجيل»</div>}
-
-          {phase === 'recording' && (
-            <>
-              <div className="recBadge">
-                <span className="recDot" /> REC
-              </div>
-              <div className="countRing" aria-live="polite">
-                {secondsLeft}
-              </div>
-              <div className="progressWrap">
-                <div className="progressBar" style={{ width: `${progress * 100}%` }} />
-              </div>
-            </>
-          )}
-
-          {phase === 'sending' && (
-            <div className="overlay">
-              <span className="spinner" /> جارٍ الإرسال إلى تلغرام…
-            </div>
-          )}
-
-          {phase === 'sent' && (
-            <div className="overlay ok">
-              <span>✅ تم الإرسال بنجاح</span>
-              <span className="meta">تحقق من محادثة البوت في تلغرام</span>
-            </div>
-          )}
-        </div>
-
-        {error && <div className="banner err">{error}</div>}
-
-        {phase === 'sent' ? (
-          <div className="actions">
-            <button className="btn primary" onClick={resetToIdle}>
-              🔄 تسجيل فيديو جديد
-            </button>
+    <main className="app">
+      <div className="shell">
+        <header className="head">
+          <div className="brand">
+            <span className="dot" aria-hidden="true" />
+            <h1>عشر ثوانٍ</h1>
           </div>
-        ) : phase === 'preview' || phase === 'sending' ? (
-          <>
-            <div className="actions">
-              <button
-                className="btn primary"
-                disabled={!videoBlob || sending}
-                onClick={sendVideo}
-                aria-busy={sending}
-              >
-                {sending ? 'جارٍ الإرسال…' : '📤 إرسال إلى تلغرام'}
-              </button>
+          <p className="sub">الكاميرا الأمامية • مونتاج مباشر • إرسال إلى تلغرام</p>
+        </header>
 
-              {retakeAsk ? (
-                <button className="btn danger solid" disabled={sending} onClick={resetToIdle}>
-                  تأكيد الحذف وإعادة التسجيل
-                </button>
-              ) : (
-                <button className="btn ghost" disabled={sending} onClick={() => setRetakeAsk(true)}>
-                  🎬 إعادة التسجيل
-                </button>
-              )}
-            </div>
-
-            {retakeAsk && !sending && (
-              <div className="note">سيُحذف هذا المقطع نهائيًا ولن يُرسل — اضغط «تأكيد الحذف» للمتابعة.</div>
-            )}
-            <div className="note">
-              المدة المسجّلة: {elapsed.toFixed(1)} ثانية
-              {dimensions ? ` • ${dimensions.width}×${dimensions.height}` : ''}
-            </div>
-          </>
-        ) : (
-          <div className="actions">
-            {phase === 'recording' ? (
-              <button className="btn danger solid" onClick={stopRecording}>
-                ⏹ إيقاف التسجيل الآن
-              </button>
-            ) : (
-              <button
-                className="btn primary"
-                disabled={phase !== 'idle' || serverReady === false}
-                onClick={startRecording}
-              >
-                ⏺ ابدأ التسجيل ({MAX_SECONDS} ثوانٍ)
-              </button>
-            )}
+        {serverReady === false && (
+          <div className="banner warn">
+            ⚠️ الخادم غير مهيأ: أضف <code>TELEGRAM_BOT_TOKEN</code> و <code>TELEGRAM_CHAT_ID</code> في
+            متغيرات البيئة على Vercel ثم أعد النشر.
           </div>
         )}
 
-        <p className="note foot">لا يُخزَّن الفيديو على الخادم — يمرّ مباشرةً إلى تلغرام.</p>
+        <div className="stage">
+          <div className={`camera ${phase === 'recording' ? 'is-rec' : ''}`}>
+            {/* الكانفس الناتج عن التركيب */}
+            <div
+              ref={stageRef}
+              className="stageHost"
+              style={{ display: showPreview ? 'none' : 'block' }}
+            />
+
+            {/* معاينة التسجيل */}
+            {showPreview && videoUrl && (
+              <video className="viewer" src={videoUrl} controls playsInline autoPlay loop />
+            )}
+
+            {phase === 'loading' && <div className="hint">جارٍ التجهيز…</div>}
+
+            {phase === 'idle' && (
+              <div className="hint">
+                <span>ستُشغَّل الكاميرا عند الضغط على «ابدأ التسجيل»</span>
+              </div>
+            )}
+
+            {phase === 'recording' && (
+              <>
+                <div className="recBadge">
+                  <span className="recDot" /> REC
+                </div>
+                <div className="countRing" aria-live="polite">
+                  {secondsLeft}
+                </div>
+                <div className="progressWrap">
+                  <div className="progressBar" style={{ width: `${progress * 100}%` }} />
+                </div>
+                {!showStage && null}
+              </>
+            )}
+
+            {phase === 'sending' && (
+              <div className="overlay">
+                <span className="spinner" /> جارٍ الإرسال إلى تلغرام…
+              </div>
+            )}
+
+            {phase === 'sent' && (
+              <div className="overlay ok">
+                <span>✅ تم الإرسال بنجاح</span>
+                <span className="meta">تحقق من محادثة البوت في تلغرام</span>
+              </div>
+            )}
+          </div>
+
+          {error && <div className="banner err">{error}</div>}
+
+          {phase === 'sent' ? (
+            <div className="actions">
+              <button className="btn primary" onClick={resetToIdle}>
+                🔄 تسجيل فيديو جديد
+              </button>
+            </div>
+          ) : phase === 'preview' || phase === 'sending' ? (
+            <>
+              <div className="actions">
+                <button
+                  className="btn primary"
+                  disabled={!videoBlob || sending}
+                  onClick={sendVideo}
+                  aria-busy={sending}
+                >
+                  {sending ? 'جارٍ الإرسال…' : '📤 إرسال إلى تلغرام'}
+                </button>
+                <button className="btn ghost" disabled={sending} onClick={resetToIdle}>
+                  🎬 إعادة التسجيل
+                </button>
+              </div>
+              <div className="note">
+                المدة المسجّلة: {elapsed.toFixed(1)} ثانية
+                {cameraSize ? ` • الكاميرا ${cameraSize.width}×${cameraSize.height}` : ''}
+              </div>
+            </>
+          ) : (
+            <div className="actions">
+              {phase === 'recording' ? (
+                <button className="btn danger solid" onClick={stopRecording}>
+                  ⏹ إيقاف التسجيل الآن
+                </button>
+              ) : (
+                <button
+                  className="btn primary"
+                  disabled={phase !== 'idle' || serverReady === false}
+                  onClick={startRecording}
+                >
+                  ⏺ ابدأ التسجيل ({MAX_SECONDS} ثوانٍ)
+                </button>
+              )}
+            </div>
+          )}
+
+          <p className="note foot">لا يُخزَّن الفيديو على الخادم — يمرّ مباشرةً إلى تلغرام.</p>
+        </div>
       </div>
 
       {phase === 'code' && (
@@ -544,6 +586,6 @@ export default function Recorder() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

@@ -106,8 +106,8 @@ body {
 .camera {
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 4;
-  max-height: 62dvh;
+  aspect-ratio: 9 / 16;
+  max-height: 66dvh;
   background: #05080c;
   border-radius: 16px;
   overflow: hidden;
@@ -125,11 +125,20 @@ body {
   height: 100%;
   object-fit: cover;
   background: #05080c;
-  transform: scaleX(-1); /* مرآة للكاميرا الأمامية */
 }
 
-.camera video.viewer[src] {
-  transform: none; /* معاينة التسجيل بدون مرآة */
+/* الكانفس الناتج عن تركيب الكاميرا + فيديو المونتاج */
+.stageHost {
+  position: absolute;
+  inset: 0;
+  background: #05080c;
+}
+
+.stageCanvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .hint {
@@ -436,5 +445,165 @@ body {
   }
   .btn {
     padding: 13px 14px;
+  }
+}
+
+/* ======================= صفحة الغلاف (Reels-style) ======================= */
+.gate {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #05080c;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+}
+
+.gateMedia {
+  position: absolute;
+  inset: 0;
+}
+
+.gatePoster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(1.06) contrast(1.02) brightness(0.9);
+  transform: scale(1.02);
+}
+
+.gateVeil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(85% 55% at 50% 38%, rgba(3, 6, 10, 0.05), rgba(3, 6, 10, 0.72) 100%),
+    linear-gradient(180deg, rgba(3, 6, 10, 0.45), rgba(3, 6, 10, 0.12) 38%, rgba(3, 6, 10, 0.95));
+}
+
+.gateContent {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 22px;
+  text-align: center;
+  animation: rise 0.6s ease both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.gateBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #ffd9dd;
+  background: rgba(10, 14, 20, 0.62);
+  border: 1px solid rgba(255, 77, 94, 0.45);
+  backdrop-filter: blur(8px);
+}
+
+.recDotSmall {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: pulse 1.2s infinite;
+}
+
+.gateTitle {
+  margin: 0;
+  font-size: clamp(1.8rem, 8vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
+}
+
+.gateSub {
+  margin: 0;
+  color: #cfdcea;
+  font-size: 0.95rem;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8);
+}
+
+.gatePlay {
+  margin-top: 10px;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(140deg, var(--accent), var(--accent-2));
+  box-shadow:
+    0 18px 45px rgba(59, 167, 255, 0.42),
+    0 0 0 10px rgba(255, 255, 255, 0.06);
+  animation: breathe 2.4s ease-in-out infinite;
+  transition: transform 0.15s ease;
+}
+
+.gatePlay:active {
+  transform: scale(0.95);
+}
+
+.gatePlay svg {
+  margin-inline-start: 4px; /* لضبط مثلث التشغيل بصريًا */
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 18px 45px rgba(59, 167, 255, 0.42),
+      0 0 0 10px rgba(255, 255, 255, 0.06);
+  }
+  50% {
+    box-shadow:
+      0 18px 55px rgba(125, 92, 255, 0.55),
+      0 0 0 18px rgba(255, 255, 255, 0.03);
+  }
+}
+
+.gateHint {
+  font-size: 0.85rem;
+  color: #dbe6f2;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.gateFoot {
+  position: absolute;
+  bottom: 16px;
+  inset-inline: 0;
+  z-index: 2;
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(220, 232, 245, 0.62);
+  padding: 0 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gatePlay,
+  .recDot,
+  .recDotSmall,
+  .spinner {
+    animation: none !important;
   }
 }
