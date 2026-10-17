@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>فيديو</title>
+
+<meta property="og:type" content="video.other">
+<meta property="og:title" content="فيديو">
+<meta property="og:description" content="">
+<meta property="og:image" content="https://a78009866.github.io/Boot/og.jpg">
+<meta property="og:video" content="https://pub-6587a14970ce48e5b82bf3886ae6b2d7.r2.dev/VN20261017_115324.mp4">
+<meta property="og:video:type" content="video/mp4">
+<meta property="og:video:width" content="628">
+<meta property="og:video:height" content="1280">
+<meta name="twitter:card" content="player">
+<meta name="twitter:title" content="فيديو">
+<meta name="twitter:image" content="https://a78009866.github.io/Boot/og.jpg">
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  #v {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    object-fit: cover;
+    background: #000;
+    display: block;
+  }
+  #hint {
+    position: fixed;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, .6);
+    color: #fff;
+    font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity .5s ease;
+    pointer-events: none;
+    z-index: 10;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  #hint.show { opacity: 1; }
+  #err {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+    text-decoration: none;
+    font-size: 16px;
+  }
+</style>
+</head>
+<body>
+
+<video id="v"
+       playsinline
+       webkit-playsinline
+       x5-playsinline
+       x5-video-player-type="h5"
+       x5-video-player-fullscreen="true"
+       autoplay
+       loop
+       muted
+       preload="auto"
+       disablepictureinpicture
+       src="https://pub-6587a14970ce48e5b82bf3886ae6b2d7.r2.dev/VN20261017_115324.mp4"></video>
+
+<div id="hint">انقر للعرض بملء الشاشة مع الصوت</div>
+<a id="err" href="https://pub-6587a14970ce48e5b82bf3886ae6b2d7.r2.dev/VN20261017_115324.mp4">تعذّر تشغيل الفيديو — اضغط للتحميل</a>
+
+<script>
+(function () {
+  var v = document.getElementById('v');
+  var hint = document.getElementById('hint');
+  var err = document.getElementById('err');
+  var hintTimer = null;
+
+  function showHint() {
+    hint.classList.add('show');
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(function () { hint.classList.remove('show'); }, 4000);
+  }
+
+  function playMuted() {
+    v.muted = true;
+    var p = v.play();
+    if (p && p.catch) p.catch(function () {});
+    showHint();
+  }
+
+  // 1) محاولة التشغيل فورًا بالصوت — إن منعه المتصفح يبدأ صامتًا (مسموح دائمًا)
+  v.muted = false;
+  var p = v.play();
+  if (p && p.catch) {
+    p.catch(function () { playMuted(); });
+  }
+
+  function goFullscreen() {
+    var el = document.documentElement;
+    try {
+      if (el.requestFullscreen) { el.requestFullscreen({ navigationUI: 'hide' }).catch(function () {}); return; }
+      if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); return; }
+      if (v.webkitEnterFullscreen) { v.webkitEnterFullscreen(); }
+    } catch (e) {}
+  }
+
+  function onGesture() {
+    goFullscreen();
+    v.muted = false;
+    v.volume = 1;
+    var p2 = v.play();
+    if (p2 && p2.catch) p2.catch(function () {});
+    hint.classList.remove('show');
+    clearTimeout(hintTimer);
+    setTimeout(showHint, 2500); // يختفي ثم يعود إن ظل الصوت مكتومًا
+  }
+
+  document.addEventListener('click', onGesture);
+  document.addEventListener('touchstart', onGesture, { passive: true });
+  document.addEventListener('keydown', onGesture);
+
+  // استئناف التشغيل إن أوقفه المتصفح مؤقتًا
+  v.addEventListener('pause', function () {
+    if (!document.hidden) {
+      var p3 = v.play();
+      if (p3 && p3.catch) p3.catch(function () {});
+    }
+  });
+
+  v.addEventListener('error', function () {
+    v.style.display = 'none';
+    err.style.display = 'flex';
+  });
+})();
+</script>
+</body>
+</html>
